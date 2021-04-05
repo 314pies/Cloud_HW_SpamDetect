@@ -3,6 +3,8 @@ import string
 import sys
 import numpy as np
 import boto3
+import email
+from email.utils import parseaddr
 
 from hashlib import md5
 from io import StringIO
@@ -126,11 +128,67 @@ def hashing_trick(text, n,
                                 split=split)
     return [int(hash_function(w) % (n - 1) + 1) for w in seq]
 
+def send_email_to(recipiemt, body_text): 
+    print("Sending message to " + recipiemt)
+    print("Email Body: ", body_text)
+    #return
+    
+    client = boto3.client('ses')
+    response = client.send_email(
+        Source='do-not-reply@yc3936ic.com',
+        Destination={
+            'ToAddresses': [
+                recipiemt,
+            ],
+        },
+        Message={
+            'Body': {
+                'Html': {
+                    'Data': body_text,
+                },
+                'Text': {
+                    'Data': body_text,
+                },
+            },
+            'Subject': {
+                'Data': 'Spam Filter Result',
+            },
+        },
+    )
+
 ENDPOINT = 'sms-spam-classifier-mxnet-2021-04-05-02-01-28-379'
 def lambda_handler(event, context):
     
-    message = "claim your reward of 3 hours talk time to us"
+    
+    #print(event)
+    bucket = event['Records'][0]['s3']['bucket']['name']
+    fileName = event['Records'][0]['s3']['object']['key']  
+    
+    print("bucket: " + bucket)
+    print("fileName name: " + fileName)
+    
+    s3 = boto3.client('s3')
+    response = s3.get_object(Bucket=bucket, Key=fileName)
+    msg = email.message_from_bytes(response['Body'].read())
+    #print(str(msg))
+    Subject = msg['Subject']
+    print(Subject)
+    realname, emailaddr = parseaddr(msg['Return-Path'])
+    print(emailaddr)
+    Date = msg['Date']
+    print(Date)
+    #print(msg.get_payload(None, True))
+    body_message = ""
+    for _m in [k.get_payload() for k in msg.walk() if k.get_content_type() == 'text/plain']:
+        body_message += _m
+    
+    body_message = body_message.rstrip()
+    print('body message: ', body_message)
+    
+    #-------------------------------
+    #message = "claim your reward of 3 hours talk time to us"
     #message = "FreeMsg: Txt: 86888 & claim your reward of 3 hours talk time to use from your phoneasdasdasd now! "
+    message = body_message
     
     sagemaker = boto3.client('sagemaker-runtime')
     test_messages = [message]
@@ -146,12 +204,22 @@ def lambda_handler(event, context):
     resultObj = json.loads(result.decode("utf-8"))
     print(resultObj)
     label = resultObj['predicted_label'][0][0]
-
+    predicted_probability = resultObj['predicted_probability'][0][0]
+    label_result = ""
+    
     if label == 1.0:
         print("Is Spam")
+        label_result = "Is_SPAM"
     else:
         print("Is not Spam")
+        label_result = "Is_NOT_SPAM"
     
+    email_message_body = "We received your email sent at " + str(Date) + " with the subject \"" + str(Subject) + "\""
+    email_message_body += "\n <br> <br> Here is a 240 character sample of the email body: <br><br>"
+    email_message_body += ((body_message[:240] + '..') if len(body_message) > 240 else body_message)
+    email_message_body += "\n <br><br> The email was categorized as " + str(label_result) + " with a " + str((predicted_probability * 100)) +"% confidence."
+    
+    send_email_to(emailaddr, email_message_body)
     return {
         'statusCode': 200,
         'body': json.dumps('Hello from Lambda!')
