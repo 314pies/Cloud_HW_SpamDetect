@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'HW3 Cloud Formation'
+Parameters:
+  Prefix:
+    Description: 'Prefix'
+    Type: 'String'
+    Default: 'hw3-cf'
+  AppVersion:
+    Type: 'String'
+    Default: '1.0.0'
+  S3EmailBucketName:
+    Type: 'String'
+  PredictionEndpoint:
+    Type: 'String'
+
+Resources:
+  S3BucketImageUpload:
+    Type: 'AWS::S3::Bucket'
+    DependsOn: LambdaInvokePermissionS3Upload
+    Properties:
+      BucketName: !Sub '${Prefix}-${S3EmailBucketName}-${AWS::Region}'
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:Put'
+            Function: !GetAtt LambdaS3Upload.Arn
+
+  RoleLambdaS3Upload:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: 'Role for Lambda S3 upload'
+      RoleName: !Sub '${Prefix}-lambda-s3-upload-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service:
+                - 'lambda.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonSESFullAccess
+        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+
+  LambdaS3Upload:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: !Sub '${Prefix}-lambda-s3-upload-${AWS::Region}'
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              print("Event: %s" % json.dumps(event))
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Role: !GetAtt RoleLambdaS3Upload.Arn
+      Environment: 
+        Variables:
+          PRE_END_POINT: !Ref PredictionEndpoint
+
+  LambdaInvokePermissionS3Upload:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaS3Upload.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: !Sub 'arn:aws:s3:::${Prefix}-${S3EmailBucketName}-${AWS::Region}'
