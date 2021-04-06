@@ -27,7 +27,9 @@ Resources:
           Principal:
             Service: ses.amazonaws.com
           Action:  s3:*
-          Resource: !GetAtt S3BucketImageUpload.Arn
+          #Resource: !GetAtt S3BucketImageUpload.Arn
+          #not sure why, but the polict seems need to have '/*' added in the end for ses to work
+          Resource: !Sub 'arn:aws:s3:::${Prefix}-${S3EmailBucketName}-${AWS::Region}/*'
           Condition:
             StringEquals:
               aws:Referer: '113471254581'
@@ -74,6 +76,8 @@ Resources:
       Runtime: python3.8
       Handler: index.lambda_handler
       Role: !GetAtt RoleLambdaS3Upload.Arn
+      Layers:
+        - arn:aws:lambda:us-east-1:668099181075:layer:AWSLambda-Python38-SciPy1x:29
       Environment: 
         Variables:
           PRE_END_POINT: !Ref PredictionEndpoint
@@ -88,13 +92,14 @@ Resources:
       SourceArn: !Sub 'arn:aws:s3:::${Prefix}-${S3EmailBucketName}-${AWS::Region}'
   
 
-  # SESRuleSet:
-  #   Type: AWS::SES::ReceiptRule
-  #   DependsOn: S3BucketPolicy
-  #   Properties:
-  #     Rule:
-  #       Actions:
-  #         - S3Action: 
-  #             BucketName: !Ref S3BucketImageUpload   
-  #       Enabled: true
-  #     RuleSetName: !Sub '${Prefix}-ses-rules-${AWS::Region}'
+  SESRuleSet:
+    Type: AWS::SES::ReceiptRule
+    DependsOn: S3BucketPolicy
+    Properties:
+      Rule:
+        Actions:
+          - S3Action: 
+              BucketName: !Ref S3BucketImageUpload   
+        Enabled: true
+        Name: !Sub '${Prefix}-SESRuleSet-${AWS::Region}'
+      RuleSetName: default-rule-set
