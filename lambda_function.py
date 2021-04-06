@@ -5,7 +5,6 @@ import numpy as np
 import boto3
 import email
 from email.utils import parseaddr
-import os
 
 from hashlib import md5
 from io import StringIO
@@ -132,7 +131,7 @@ def hashing_trick(text, n,
 def send_email_to(recipiemt, body_text): 
     print("Sending message to " + recipiemt)
     print("Email Body: ", body_text)
-    return
+    #return
     
     client = boto3.client('ses')
     response = client.send_email(
@@ -157,16 +156,11 @@ def send_email_to(recipiemt, body_text):
         },
     )
 
-
+ENDPOINT = 'sms-spam-classifier-mxnet-2021-04-05-02-01-28-379'
 def lambda_handler(event, context):
+    
+    
     #print(event)
-    
-    ENDPOINT = 'sms-spam-classifier-mxnet-2021-04-05-02-01-28-379'
-    if 'PRE_END_POINT' in os.environ:
-        ENDPOINT = os.environ['PRE_END_POINT']
-    
-    print('EndPoint: ', ENDPOINT)
-    
     bucket = event['Records'][0]['s3']['bucket']['name']
     fileName = event['Records'][0]['s3']['object']['key']  
     
