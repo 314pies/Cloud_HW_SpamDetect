@@ -132,7 +132,7 @@ def hashing_trick(text, n,
 def send_email_to(recipiemt, body_text): 
     print("Sending message to " + recipiemt)
     print("Email Body: ", body_text)
-    return
+    #return
     
     client = boto3.client('ses')
     response = client.send_email(
