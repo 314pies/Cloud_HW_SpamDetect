@@ -13,7 +13,25 @@ Parameters:
   PredictionEndpoint:
     Type: 'String'
 
-Resources:
+Resources:         
+
+  S3BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref S3BucketImageUpload
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AllowSESPuts-1617669428140
+          Effect: Allow
+          Principal:
+            Service: ses.amazonaws.com
+          Action:  s3:*
+          Resource: !GetAtt S3BucketImageUpload.Arn
+          Condition:
+            StringEquals:
+              aws:Referer: '113471254581'
+
   S3BucketImageUpload:
     Type: 'AWS::S3::Bucket'
     DependsOn: LambdaInvokePermissionS3Upload
@@ -68,3 +86,15 @@ Resources:
       Principal: s3.amazonaws.com
       SourceAccount: !Ref 'AWS::AccountId'
       SourceArn: !Sub 'arn:aws:s3:::${Prefix}-${S3EmailBucketName}-${AWS::Region}'
+  
+
+  # SESRuleSet:
+  #   Type: AWS::SES::ReceiptRule
+  #   DependsOn: S3BucketPolicy
+  #   Properties:
+  #     Rule:
+  #       Actions:
+  #         - S3Action: 
+  #             BucketName: !Ref S3BucketImageUpload   
+  #       Enabled: true
+  #     RuleSetName: !Sub '${Prefix}-ses-rules-${AWS::Region}'
