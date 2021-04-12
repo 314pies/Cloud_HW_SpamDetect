@@ -10,9 +10,13 @@ Parameters:
     Default: '1.0.0'
   S3EmailBucketName:
     Type: 'String'
+    Default: 'spamdetectemail'
   PredictionEndpoint:
     Type: 'String'
     Default: 'sms-spam-classifier-mxnet-2021-04-05-02-01-28-379'
+  ReceiptRuleSetName:
+    Type: String
+    Default: 'spamdetection'
 
 Resources:         
 
@@ -92,15 +96,21 @@ Resources:
       SourceAccount: !Ref 'AWS::AccountId'
       SourceArn: !Sub 'arn:aws:s3:::${Prefix}-${S3EmailBucketName}-${AWS::Region}'
   
+  ReceiptRuleSet:
+    Type: AWS::SES::ReceiptRuleSet
+    Properties: 
+      RuleSetName: !Ref ReceiptRuleSetName
 
-  SESRuleSet:
+  SESRule:
     Type: AWS::SES::ReceiptRule
-    DependsOn: S3BucketPolicy
+    DependsOn: 
+      - S3BucketPolicy
+      - ReceiptRuleSet
     Properties:
       Rule:
         Actions:
           - S3Action: 
               BucketName: !Ref S3EmailBucket   
         Enabled: true
-        Name: !Sub '${Prefix}-SESRuleSet-${AWS::Region}'
-      RuleSetName: default-rule-set
+        Name: !Sub '${Prefix}-SESRule-${AWS::Region}'
+      RuleSetName: !Ref ReceiptRuleSetName
